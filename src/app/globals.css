@@ -5,13 +5,43 @@
 @tailwind utilities;
 
 :root {
-  --accent: #00d4ff;
+  color-scheme: light;
+
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface2: #f1f5f9;
+  --border: #e2e8f0;
+  --muted: #64748b;
+  --accent: #2563eb;
+  --grid-color: rgba(37, 99, 235, 0.045);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #020617;
+  --foreground: #e2e8f0;
+  --surface: #0f172a;
+  --surface2: #1e293b;
+  --border: #1e293b;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --grid-color: rgba(56, 189, 248, 0.05);
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background-color: #0a0e1a;
-  color: #e2e8f0;
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: 'DM Sans', sans-serif;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Subtle grid background */
@@ -20,8 +50,8 @@ body::before {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(0, 212, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 44px 44px;
   pointer-events: none;
   z-index: 0;
@@ -36,4 +66,41 @@ canvas {
   .font-display {
     font-family: 'Syne', sans-serif;
   }
+
+  .bg-background {
+    background-color: var(--background);
+  }
+
+  .bg-surface {
+    background-color: var(--surface);
+  }
+
+  .bg-surface2 {
+    background-color: var(--surface2);
+  }
+
+  .text-foreground {
+    color: var(--foreground);
+  }
+
+  .text-muted {
+    color: var(--muted);
+  }
+
+  .text-accent {
+    color: var(--accent);
+  }
+
+  .border-border {
+    border-color: var(--border);
+  }
+
+  .bg-accent {
+    background-color: var(--accent);
+  }
+
+  .border-accent {
+    border-color: var(--accent);
+  }
+  
 }

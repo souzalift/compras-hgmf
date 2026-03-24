@@ -10,7 +10,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import { fmtBRL, PALETTE, PALETTE_BORDER, CHART_GRID } from '@/lib/utils';
+import { fmtBRL, PALETTE, PALETTE_BORDER } from '@/lib/utils';
 
 ChartJS.register(
   CategoryScale,
@@ -21,15 +21,46 @@ ChartJS.register(
   Legend,
 );
 
-ChartJS.defaults.color = '#64748b';
 ChartJS.defaults.font.family = "'DM Sans', sans-serif";
 
-// ── Shared tooltip formatter ──────────────────────────────────────────────────
+function getChartTheme() {
+  if (typeof window === 'undefined') {
+    return {
+      text: '#64748b',
+      grid: 'rgba(148, 163, 184, 0.18)',
+      surfaceBorder: 'rgba(148, 163, 184, 0.22)',
+      accentFill: 'rgba(37, 99, 235, 0.18)',
+      accentBorder: '#2563eb',
+      accentHover: 'rgba(37, 99, 235, 0.3)',
+    };
+  }
+
+  const styles = getComputedStyle(document.documentElement);
+  const isDark = document.documentElement.classList.contains('dark');
+
+  const muted = styles.getPropertyValue('--muted').trim() || '#64748b';
+  const accent = styles.getPropertyValue('--accent').trim() || '#2563eb';
+
+  return {
+    text: muted,
+    grid: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(148, 163, 184, 0.2)',
+    surfaceBorder: isDark
+      ? 'rgba(15, 23, 42, 0.9)'
+      : 'rgba(255, 255, 255, 0.95)',
+    accentFill: isDark ? 'rgba(56, 189, 248, 0.18)' : 'rgba(37, 99, 235, 0.16)',
+    accentBorder: accent,
+    accentHover: isDark
+      ? 'rgba(56, 189, 248, 0.32)'
+      : 'rgba(37, 99, 235, 0.28)',
+  };
+}
+
 const brlTooltip = {
-  callbacks: { label: (ctx: { raw: unknown }) => fmtBRL(Number(ctx.raw)) },
+  callbacks: {
+    label: (ctx: { raw: unknown }) => fmtBRL(Number(ctx.raw)),
+  },
 };
 
-// ── Bar chart por mês ─────────────────────────────────────────────────────────
 export function ChartMes({
   labels,
   values,
@@ -37,6 +68,8 @@ export function ChartMes({
   labels: string[];
   values: number[];
 }) {
+  const theme = getChartTheme();
+
   return (
     <Bar
       data={{
@@ -49,20 +82,27 @@ export function ChartMes({
               (_, i) => PALETTE_BORDER[i % PALETTE_BORDER.length],
             ),
             borderWidth: 2,
-            borderRadius: 6,
+            borderRadius: 8,
           },
         ],
       }}
       options={{
         responsive: true,
-        plugins: { legend: { display: false }, tooltip: brlTooltip },
+        plugins: {
+          legend: { display: false },
+          tooltip: brlTooltip,
+        },
         scales: {
-          x: { grid: { color: CHART_GRID } },
+          x: {
+            ticks: { color: theme.text },
+            grid: { color: theme.grid },
+          },
           y: {
-            grid: { color: CHART_GRID },
             ticks: {
+              color: theme.text,
               callback: (v) => 'R$' + (Number(v) / 1000).toFixed(0) + 'K',
             },
+            grid: { color: theme.grid },
           },
         },
       }}
@@ -70,7 +110,6 @@ export function ChartMes({
   );
 }
 
-// ── Doughnut por setor ────────────────────────────────────────────────────────
 export function ChartSetor({
   labels,
   values,
@@ -78,6 +117,8 @@ export function ChartSetor({
   labels: string[];
   values: number[];
 }) {
+  const theme = getChartTheme();
+
   return (
     <Doughnut
       data={{
@@ -86,7 +127,7 @@ export function ChartSetor({
           {
             data: values,
             backgroundColor: PALETTE,
-            borderColor: 'rgba(10,14,26,0.8)',
+            borderColor: theme.surfaceBorder,
             borderWidth: 3,
             hoverOffset: 6,
           },
@@ -98,7 +139,12 @@ export function ChartSetor({
         plugins: {
           legend: {
             position: 'right',
-            labels: { boxWidth: 9, padding: 12, font: { size: 10 } },
+            labels: {
+              color: theme.text,
+              boxWidth: 9,
+              padding: 12,
+              font: { size: 10 },
+            },
           },
           tooltip: {
             callbacks: {
@@ -111,7 +157,6 @@ export function ChartSetor({
   );
 }
 
-// ── Horizontal bar — top itens ────────────────────────────────────────────────
 export function ChartTopItems({
   labels,
   values,
@@ -119,6 +164,8 @@ export function ChartTopItems({
   labels: string[];
   values: number[];
 }) {
+  const theme = getChartTheme();
+
   return (
     <Bar
       data={{
@@ -126,33 +173,42 @@ export function ChartTopItems({
         datasets: [
           {
             data: values,
-            backgroundColor: 'rgba(0,212,255,0.12)',
-            borderColor: '#00d4ff',
-            borderWidth: 1,
-            borderRadius: 4,
-            hoverBackgroundColor: 'rgba(0,212,255,0.3)',
+            backgroundColor: theme.accentFill,
+            borderColor: theme.accentBorder,
+            borderWidth: 1.5,
+            borderRadius: 6,
+            hoverBackgroundColor: theme.accentHover,
           },
         ],
       }}
       options={{
         indexAxis: 'y' as const,
         responsive: true,
-        plugins: { legend: { display: false }, tooltip: brlTooltip },
+        plugins: {
+          legend: { display: false },
+          tooltip: brlTooltip,
+        },
         scales: {
           x: {
-            grid: { color: CHART_GRID },
             ticks: {
+              color: theme.text,
               callback: (v) => 'R$' + (Number(v) / 1000).toFixed(0) + 'K',
             },
+            grid: { color: theme.grid },
           },
-          y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: {
+            ticks: {
+              color: theme.text,
+              font: { size: 10 },
+            },
+            grid: { display: false },
+          },
         },
       }}
     />
   );
 }
 
-// ── Bar chart tipo RM ─────────────────────────────────────────────────────────
 export function ChartTipoRM({
   labels,
   values,
@@ -160,6 +216,8 @@ export function ChartTipoRM({
   labels: string[];
   values: number[];
 }) {
+  const theme = getChartTheme();
+
   return (
     <Bar
       data={{
@@ -172,16 +230,24 @@ export function ChartTipoRM({
               (_, i) => PALETTE_BORDER[i % PALETTE_BORDER.length],
             ),
             borderWidth: 2,
-            borderRadius: 6,
+            borderRadius: 8,
           },
         ],
       }}
       options={{
         responsive: true,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+        },
         scales: {
-          x: { grid: { display: false } },
-          y: { grid: { color: CHART_GRID } },
+          x: {
+            ticks: { color: theme.text },
+            grid: { display: false },
+          },
+          y: {
+            ticks: { color: theme.text },
+            grid: { color: theme.grid },
+          },
         },
       }}
     />

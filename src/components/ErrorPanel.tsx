@@ -1,33 +1,42 @@
-'use client'
+'use client';
 
 interface ErrorPanelProps {
-  message: string
+  message: string;
 }
 
 export default function ErrorPanel({ message }: ErrorPanelProps) {
   return (
-    <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/5 px-5 py-4">
-      <h3 className="mb-1.5 text-sm font-semibold text-red-300">
-        ⚠ Erro ao carregar dados
-      </h3>
-      <p className="text-xs leading-relaxed text-red-400">
-        {message}
-        <br />
-        <br />
-        Verifique as variáveis de ambiente:{' '}
-        <code className="rounded bg-black/30 px-1.5 py-0.5 text-[0.72rem]">
-          TENANT_ID
-        </code>{' '}
-        <code className="rounded bg-black/30 px-1.5 py-0.5 text-[0.72rem]">
-          CLIENT_ID
-        </code>{' '}
-        <code className="rounded bg-black/30 px-1.5 py-0.5 text-[0.72rem]">
-          CLIENT_SECRET
-        </code>{' '}
-        <code className="rounded bg-black/30 px-1.5 py-0.5 text-[0.72rem]">
-          WORKBOOK_ID
-        </code>
-      </p>
+    <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-5 shadow-sm backdrop-blur-sm">
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 text-lg">⚠️</div>
+
+        <div>
+          <h3 className="mb-1 text-sm font-semibold text-red-600 dark:text-red-400">
+            Erro ao carregar dados
+          </h3>
+
+          <p className="text-xs leading-relaxed text-red-600/90 dark:text-red-300/90">
+            {message}
+          </p>
+
+          <div className="mt-3 text-xs text-muted">
+            Verifique as variáveis de ambiente:
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {['TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET', 'WORKBOOK_ID'].map(
+              (env) => (
+                <code
+                  key={env}
+                  className="rounded-md border border-border bg-surface2 px-2 py-1 text-[11px] font-medium text-foreground"
+                >
+                  {env}
+                </code>
+              ),
+            )}
+          </div>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
