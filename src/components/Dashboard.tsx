@@ -97,17 +97,14 @@ export default function Dashboard() {
   }, [rows, filter, searchQuery]);
 
   const kpis = useMemo(() => {
-    const financeiro = filtered.filter((r) => r.sit === 'FINANCEIRO');
-
-    const total = financeiro.reduce((s, r) => s + r.total, 0);
-    const ag = filtered.filter((r) => r.sit.includes('AGUARDANDO')).length;
-    const fin = financeiro.length;
+    const ativos = filtered.filter((r) => r.sit !== 'CANCELADO');
+    const financeiro = ativos.filter((r) => r.sit === 'FINANCEIRO');
 
     return {
-      total,
-      ag,
-      fin,
-      count: filtered.length,
+      total: financeiro.reduce((s, r) => s + r.total, 0),
+      ag: ativos.filter((r) => r.sit.includes('AGUARDANDO')).length,
+      fin: financeiro.length,
+      count: ativos.length, // 👈 agora ignora CANCELADO
     };
   }, [filtered]);
 

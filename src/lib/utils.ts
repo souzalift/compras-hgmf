@@ -18,6 +18,7 @@ export const SIT_COLORS: Record<string, string> = {
   'AGUARDANDO LIBERAÇÃO': '#f59e0b',
   'ABRIR RM': '#ef4444',
   'ATENDIDA': '#10b981',
+  'CANCELADO': '#ef4444'
 }
 
 export const PALETTE = [
