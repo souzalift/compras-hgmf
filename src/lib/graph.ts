@@ -1,86 +1,189 @@
 import type { ProcessRow } from '@/types'
+import { cookies } from 'next/headers'
 
 const RANGE = 'A1:N500'
+const GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
+const AUTH_BASE = 'https://login.microsoftonline.com'
+const COOKIE_NAME = 'ms_refresh_token'
 
-// ── Token delegado via ROPC (funciona com OneDrive pessoal e corporativo) ─────
-// Usa as credenciais do usuário armazenadas nas variáveis de ambiente.
-// Não requer interação do usuário nem redirect URI.
-export async function getAppToken(): Promise<string> {
-  const { TENANT_ID, CLIENT_ID, CLIENT_SECRET, MS_USERNAME, MS_PASSWORD } = process.env
+function getTenantId() {
+  return process.env.TENANT_ID || 'consumers'
+}
 
-  if (!TENANT_ID || !CLIENT_ID) {
-    throw new Error('Variáveis de ambiente ausentes: TENANT_ID ou CLIENT_ID')
+function getRedirectUri() {
+  const redirectUri = process.env.MS_REDIRECT_URI
+  if (!redirectUri) {
+    throw new Error('MS_REDIRECT_URI não configurado.')
   }
 
-  // Se tiver usuário/senha → ROPC (funciona com OneDrive pessoal)
-  if (MS_USERNAME && MS_PASSWORD) {
-    const res = await fetch(
-      `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'password',
-          client_id: CLIENT_ID,
-          ...(CLIENT_SECRET ? { client_secret: CLIENT_SECRET } : {}),
-          username: MS_USERNAME,
-          password: MS_PASSWORD,
-          scope: 'https://graph.microsoft.com/Files.Read https://graph.microsoft.com/Sites.Read.All offline_access',
-        }),
-      }
-    )
-    const data = await res.json()
-    if (!data.access_token) {
-      throw new Error('Falha ROPC: ' + (data.error_description ?? JSON.stringify(data)))
-    }
-    return data.access_token as string
-  }
+  return redirectUri
+}
 
-  // Fallback → client_credentials (funciona apenas com SharePoint corporativo)
-  if (!CLIENT_SECRET) {
+function getClientId() {
+  const clientId = process.env.CLIENT_ID
+  if (!clientId) {
+    throw new Error('CLIENT_ID não configurado.')
+  }
+  return clientId
+}
+
+function getClientSecret() {
+  const clientSecret = process.env.CLIENT_SECRET
+  if (!clientSecret) {
     throw new Error(
-      'Configure MS_USERNAME + MS_PASSWORD para OneDrive pessoal, ou CLIENT_SECRET para SharePoint corporativo.'
+      'CLIENT_SECRET não configurado. Para o fluxo Authorization Code no backend, crie um client secret no App Registration.'
     )
   }
+  return clientSecret
+}
 
-  const res = await fetch(
-    `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        scope: 'https://graph.microsoft.com/.default',
-      }),
-    }
-  )
+function getScopes() {
+  return [
+    'openid',
+    'profile',
+    'email',
+    'offline_access',
+    'Files.ReadWrite',
+    'User.Read',
+  ].join(' ')
+}
+
+export function getMicrosoftLoginUrl() {
+  const tenantId = getTenantId()
+  const clientId = getClientId()
+  const redirectUri = getRedirectUri()
+
+  const url = new URL(`${AUTH_BASE}/${tenantId}/oauth2/v2.0/authorize`)
+  url.searchParams.set('client_id', clientId)
+  url.searchParams.set('response_type', 'code')
+  url.searchParams.set('redirect_uri', redirectUri)
+  url.searchParams.set('response_mode', 'query')
+  url.searchParams.set('scope', getScopes())
+  url.searchParams.set('prompt', 'select_account')
+  console.log('MS_REDIRECT_URI:', redirectUri)
+  console.log('LOGIN URL:', url.toString())
+  return url.toString()
+}
+
+export async function exchangeCodeForTokens(code: string) {
+  const tenantId = getTenantId()
+  const clientId = getClientId()
+  const clientSecret = getClientSecret()
+  const redirectUri = getRedirectUri()
+
+  const res = await fetch(`${AUTH_BASE}/${tenantId}/oauth2/v2.0/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+      scope: getScopes(),
+    }).toString(),
+    cache: 'no-store',
+  })
 
   const data = await res.json()
-  if (!data.access_token) {
-    throw new Error('Falha client_credentials: ' + JSON.stringify(data))
+
+  if (!res.ok || !data.access_token) {
+    throw new Error(
+      `Falha ao trocar code por token: ${data.error_description || data.error || 'Erro desconhecido'}`
+    )
   }
+
+  return {
+    accessToken: data.access_token as string,
+    refreshToken: data.refresh_token as string | undefined,
+    expiresIn: data.expires_in as number | undefined,
+  }
+}
+
+export async function saveRefreshToken(refreshToken: string) {
+  const cookieStore = await cookies()
+
+  cookieStore.set(COOKIE_NAME, refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30, // 30 dias
+  })
+}
+
+export async function clearRefreshToken() {
+  const cookieStore = await cookies()
+  cookieStore.delete(COOKIE_NAME)
+}
+
+export async function getDelegatedToken(): Promise<string> {
+  const tenantId = getTenantId()
+  const clientId = getClientId()
+  const clientSecret = getClientSecret()
+  const cookieStore = await cookies()
+  const refreshToken = cookieStore.get(COOKIE_NAME)?.value
+
+  if (!refreshToken) {
+    throw new Error(
+      'Microsoft não autenticado. Acesse /api/auth/microsoft/login para conectar sua conta.'
+    )
+  }
+
+  const res = await fetch(`${AUTH_BASE}/${tenantId}/oauth2/v2.0/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      redirect_uri: getRedirectUri(),
+      scope: getScopes(),
+    }).toString(),
+    cache: 'no-store',
+  })
+
+  const data = await res.json()
+
+  if (!res.ok || !data.access_token) {
+    throw new Error(
+      `Falha refresh_token: ${data.error_description || data.error || 'Erro desconhecido'}`
+    )
+  }
+
+  if (data.refresh_token) {
+    await saveRefreshToken(data.refresh_token as string)
+  }
+
   return data.access_token as string
 }
 
-// ── Lista abas disponíveis ────────────────────────────────────────────────────
 export async function getWorksheets(
   token: string,
   workbookId: string
 ): Promise<string[]> {
   const urls = buildUrls(workbookId, 'workbook/worksheets')
+
   for (const url of urls) {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+
     if (res.ok) {
       const data = await res.json()
       return (data.value as Array<{ name: string }>).map((s) => s.name)
     }
   }
+
   throw new Error('Não foi possível listar as abas da planilha.')
 }
 
-// ── Lê uma aba ────────────────────────────────────────────────────────────────
 export async function readSheet(
   token: string,
   workbookId: string,
@@ -91,20 +194,36 @@ export async function readSheet(
 
   for (const url of urls) {
     try {
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      })
+
       if (res.ok) {
         const data = await res.json()
         return data.values ?? []
       }
-    } catch (_) {}
+    } catch {
+      // tenta a próxima URL
+    }
   }
+
   return []
 }
 
-// ── Parsing ───────────────────────────────────────────────────────────────────
 const MONTH_NAMES = [
-  'JAN','FEV','MAR','ABR','MAI','JUN',
-  'JUL','AGO','SET','OUT','NOV','DEZ',
+  'JAN',
+  'FEV',
+  'MAR',
+  'ABR',
+  'MAI',
+  'JUN',
+  'JUL',
+  'AGO',
+  'SET',
+  'OUT',
+  'NOV',
+  'DEZ',
 ]
 
 export function isMonthSheet(name: string) {
@@ -118,6 +237,7 @@ export function parseSheet(
   if (values.length < 2) return []
 
   const header = values[0].map((h) => String(h ?? '').trim().toUpperCase())
+
   const idx = {
     setor: header.findIndex((h) => h === 'SETOR'),
     item: header.findIndex((h) => h === 'ITEM'),
@@ -129,13 +249,16 @@ export function parseSheet(
   }
 
   const rows: ProcessRow[] = []
+
   for (let i = 1; i < values.length; i++) {
     const r = values[i]
     if (!r || !r[0]) continue
 
-    const qty = parseFloat(String(r[idx.qty] ?? 0)) || 0
-    const price = parseFloat(String(r[idx.price] ?? 0)) || 0
-    const total = parseFloat(String(r[idx.total] ?? 0)) || qty * price
+    const qty = parseFloat(String(r[idx.qty] ?? 0).replace(',', '.')) || 0
+    const price = parseFloat(String(r[idx.price] ?? 0).replace(',', '.')) || 0
+    const total =
+      parseFloat(String(r[idx.total] ?? 0).replace(',', '.')) || qty * price
+
     const setor = normalizeSetor(String(r[idx.setor] ?? ''))
     if (!setor) continue
 
@@ -150,27 +273,32 @@ export function parseSheet(
       rm: String(r[idx.rm] ?? '').trim(),
     })
   }
+
   return rows
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function buildUrls(workbookId: string, path: string): string[] {
-  const base = 'https://graph.microsoft.com/v1.0'
   const urls: string[] = []
 
   if (process.env.SITE_ID) {
-    urls.push(`${base}/sites/${process.env.SITE_ID}/drive/items/${workbookId}/${path}`)
+    urls.push(`${GRAPH_BASE}/sites/${process.env.SITE_ID}/drive/items/${workbookId}/${path}`)
   }
+
   if (process.env.DRIVE_ID) {
-    urls.push(`${base}/drives/${process.env.DRIVE_ID}/items/${workbookId}/${path}`)
+    urls.push(`${GRAPH_BASE}/drives/${process.env.DRIVE_ID}/items/${workbookId}/${path}`)
   }
-  urls.push(`${base}/me/drive/items/${workbookId}/${path}`)
+
+  urls.push(`${GRAPH_BASE}/me/drive/items/${workbookId}/${path}`)
+
   return urls
 }
 
 function normalizeSetor(s: string): string | null {
-  const v = s.trim().toUpperCase()
+  const v = s
+    .trim()
+    .toUpperCase()
     .replace(/^MANUTENCAO$/, 'MANUTENÇÃO')
     .replace(/^LABORATORIO\s*$/, 'LABORATÓRIO')
+
   return v || null
 }

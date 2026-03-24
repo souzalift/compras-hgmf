@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import {
   Chart as ChartJS,
@@ -8,27 +8,34 @@ import {
   ArcElement,
   Tooltip,
   Legend,
-} from 'chart.js'
-import { Bar, Doughnut } from 'react-chartjs-2'
-import { fmtBRL, PALETTE, PALETTE_BORDER, CHART_GRID } from '@/lib/utils'
+} from 'chart.js';
+import { Bar, Doughnut } from 'react-chartjs-2';
+import { fmtBRL, PALETTE, PALETTE_BORDER, CHART_GRID } from '@/lib/utils';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+);
 
-ChartJS.defaults.color = '#64748b'
-ChartJS.defaults.font.family = "'DM Sans', sans-serif"
+ChartJS.defaults.color = '#64748b';
+ChartJS.defaults.font.family = "'DM Sans', sans-serif";
 
 // ── Shared tooltip formatter ──────────────────────────────────────────────────
 const brlTooltip = {
   callbacks: { label: (ctx: { raw: unknown }) => fmtBRL(Number(ctx.raw)) },
-}
+};
 
 // ── Bar chart por mês ─────────────────────────────────────────────────────────
 export function ChartMes({
   labels,
   values,
 }: {
-  labels: string[]
-  values: number[]
+  labels: string[];
+  values: number[];
 }) {
   return (
     <Bar
@@ -38,7 +45,9 @@ export function ChartMes({
           {
             data: values,
             backgroundColor: labels.map((_, i) => PALETTE[i % PALETTE.length]),
-            borderColor: labels.map((_, i) => PALETTE_BORDER[i % PALETTE_BORDER.length]),
+            borderColor: labels.map(
+              (_, i) => PALETTE_BORDER[i % PALETTE_BORDER.length],
+            ),
             borderWidth: 2,
             borderRadius: 6,
           },
@@ -51,12 +60,14 @@ export function ChartMes({
           x: { grid: { color: CHART_GRID } },
           y: {
             grid: { color: CHART_GRID },
-            ticks: { callback: (v) => 'R$' + (Number(v) / 1000).toFixed(0) + 'K' },
+            ticks: {
+              callback: (v) => 'R$' + (Number(v) / 1000).toFixed(0) + 'K',
+            },
           },
         },
       }}
     />
-  )
+  );
 }
 
 // ── Doughnut por setor ────────────────────────────────────────────────────────
@@ -64,8 +75,8 @@ export function ChartSetor({
   labels,
   values,
 }: {
-  labels: string[]
-  values: number[]
+  labels: string[];
+  values: number[];
 }) {
   return (
     <Doughnut
@@ -77,7 +88,6 @@ export function ChartSetor({
             backgroundColor: PALETTE,
             borderColor: 'rgba(10,14,26,0.8)',
             borderWidth: 3,
-            // @ts-expect-error — chart.js type
             hoverOffset: 6,
           },
         ],
@@ -91,12 +101,14 @@ export function ChartSetor({
             labels: { boxWidth: 9, padding: 12, font: { size: 10 } },
           },
           tooltip: {
-            callbacks: { label: (ctx) => ` ${ctx.label}: ${fmtBRL(Number(ctx.raw))}` },
+            callbacks: {
+              label: (ctx) => ` ${ctx.label}: ${fmtBRL(Number(ctx.raw))}`,
+            },
           },
         },
       }}
     />
-  )
+  );
 }
 
 // ── Horizontal bar — top itens ────────────────────────────────────────────────
@@ -104,8 +116,8 @@ export function ChartTopItems({
   labels,
   values,
 }: {
-  labels: string[]
-  values: number[]
+  labels: string[];
+  values: number[];
 }) {
   return (
     <Bar
@@ -118,7 +130,6 @@ export function ChartTopItems({
             borderColor: '#00d4ff',
             borderWidth: 1,
             borderRadius: 4,
-            // @ts-expect-error — chart.js type
             hoverBackgroundColor: 'rgba(0,212,255,0.3)',
           },
         ],
@@ -130,13 +141,15 @@ export function ChartTopItems({
         scales: {
           x: {
             grid: { color: CHART_GRID },
-            ticks: { callback: (v) => 'R$' + (Number(v) / 1000).toFixed(0) + 'K' },
+            ticks: {
+              callback: (v) => 'R$' + (Number(v) / 1000).toFixed(0) + 'K',
+            },
           },
           y: { grid: { display: false }, ticks: { font: { size: 10 } } },
         },
       }}
     />
-  )
+  );
 }
 
 // ── Bar chart tipo RM ─────────────────────────────────────────────────────────
@@ -144,8 +157,8 @@ export function ChartTipoRM({
   labels,
   values,
 }: {
-  labels: string[]
-  values: number[]
+  labels: string[];
+  values: number[];
 }) {
   return (
     <Bar
@@ -155,7 +168,9 @@ export function ChartTipoRM({
           {
             data: values,
             backgroundColor: labels.map((_, i) => PALETTE[i % PALETTE.length]),
-            borderColor: labels.map((_, i) => PALETTE_BORDER[i % PALETTE_BORDER.length]),
+            borderColor: labels.map(
+              (_, i) => PALETTE_BORDER[i % PALETTE_BORDER.length],
+            ),
             borderWidth: 2,
             borderRadius: 6,
           },
@@ -170,5 +185,5 @@ export function ChartTipoRM({
         },
       }}
     />
-  )
+  );
 }
