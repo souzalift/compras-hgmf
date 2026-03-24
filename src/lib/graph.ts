@@ -240,6 +240,9 @@ export function parseSheet(
 
   const idx = {
     setor: header.findIndex((h) => h === 'SETOR'),
+    codItem: header.findIndex(
+      (h) => h === 'COD. ITEM' || h === 'COD ITEM'
+    ),
     item: header.findIndex((h) => h === 'ITEM'),
     qty: header.findIndex((h) => h.includes('QTD ATD')),
     price: header.findIndex((h) => h === 'PREÇO' || h === 'PRECO'),
@@ -265,6 +268,7 @@ export function parseSheet(
     rows.push({
       mes,
       setor,
+      codigoItem: String(r[idx.codItem] ?? '').trim(),
       item: String(r[idx.item] ?? '').substring(0, 100),
       total,
       qty,

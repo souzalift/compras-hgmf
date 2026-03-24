@@ -1,6 +1,7 @@
 export interface ProcessRow {
   mes: string
   setor: string
+  codigoItem?: string;
   item: string
   total: number
   qty: number

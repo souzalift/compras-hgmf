@@ -15,10 +15,20 @@ const REFRESH_MS = 5 * 60 * 1000;
 
 type Status = 'idle' | 'loading' | 'ok' | 'error';
 
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '') // remove pontuação
+    .toLowerCase()
+    .trim();
+}
+
 export default function Dashboard() {
   const [rows, setRows] = useState<ProcessRow[]>([]);
   const [sheets, setSheets] = useState<string[]>([]);
   const [filter, setFilter] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [status, setStatus] = useState<Status>('loading');
   const [statusMsg, setStatusMsg] = useState('Carregando...');
   const [error, setError] = useState<string | null>(null);
@@ -73,18 +83,24 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, [nextAt]);
 
-  const filtered = useMemo(
-    () => (filter === 'ALL' ? rows : rows.filter((r) => r.mes === filter)),
-    [rows, filter],
-  );
+  const filtered = useMemo(() => {
+    const base = filter === 'ALL' ? rows : rows.filter((r) => r.mes === filter);
+
+    const q = normalizeText(searchQuery);
+    if (!q) return base;
+
+    return base.filter((r) => {
+      const item = normalizeText(r.item || '');
+      const codigoItem = normalizeText(String(r.codigoItem || ''));
+      return item.includes(q) || codigoItem.includes(q);
+    });
+  }, [rows, filter, searchQuery]);
 
   const kpis = useMemo(() => {
     const financeiro = filtered.filter((r) => r.sit === 'FINANCEIRO');
 
     const total = financeiro.reduce((s, r) => s + r.total, 0);
-
     const ag = filtered.filter((r) => r.sit.includes('AGUARDANDO')).length;
-
     const fin = financeiro.length;
 
     return {
@@ -214,9 +230,37 @@ export default function Dashboard() {
           ))}
         </div>
 
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por item ou código SIMPAS..."
+            className="w-full rounded-xl border border-border bg-surface px-4 py-2 text-sm text-foreground shadow-sm outline-none transition placeholder:text-muted focus:border-accent sm:w-[340px]"
+          />
+
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="rounded-xl border border-border bg-surface px-3 py-2 text-sm font-medium text-muted shadow-sm transition hover:bg-surface2 hover:text-foreground"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+
         <p className="text-xs text-muted">
           {lastUpdate && `Atualizado às ${lastUpdate}`}
           {countdown && ` · próxima sincronização em ${countdown}`}
+        </p>
+      </div>
+
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-muted">
+          {searchQuery
+            ? `${filtered.length} resultado(s) para "${searchQuery}"`
+            : `${filtered.length} processo(s) no filtro atual`}
         </p>
       </div>
 
