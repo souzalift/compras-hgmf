@@ -5,6 +5,17 @@ const RANGE = 'A1:N500'
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
 const AUTH_BASE = 'https://login.microsoftonline.com'
 const COOKIE_NAME = 'ms_refresh_token'
+const APP_TOKEN_SCOPE = 'https://graph.microsoft.com/.default'
+
+type GraphAuthMode = 'delegated' | 'app'
+
+function getGraphAuthMode(): GraphAuthMode {
+  return process.env.GRAPH_AUTH_MODE === 'app' ? 'app' : 'delegated'
+}
+
+function isAppOnlyAuth() {
+  return getGraphAuthMode() === 'app'
+}
 
 function getTenantId() {
   return process.env.TENANT_ID || 'consumers'
@@ -35,6 +46,10 @@ function getClientSecret() {
     )
   }
   return clientSecret
+}
+
+function getGraphUserId() {
+  return process.env.GRAPH_USER_ID?.trim()
 }
 
 function getScopes() {
@@ -163,6 +178,44 @@ export async function getDelegatedToken(): Promise<string> {
   return data.access_token as string
 }
 
+export async function getAppToken(): Promise<string> {
+  const tenantId = getTenantId()
+  const clientId = getClientId()
+  const clientSecret = getClientSecret()
+
+  const res = await fetch(`${AUTH_BASE}/${tenantId}/oauth2/v2.0/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'client_credentials',
+      scope: APP_TOKEN_SCOPE,
+    }).toString(),
+    cache: 'no-store',
+  })
+
+  const data = await res.json()
+
+  if (!res.ok || !data.access_token) {
+    throw new Error(
+      `Falha token de aplicação: ${data.error_description || data.error || 'Erro desconhecido'}`
+    )
+  }
+
+  return data.access_token as string
+}
+
+export async function getGraphToken(): Promise<string> {
+  if (isAppOnlyAuth()) {
+    return getAppToken()
+  }
+
+  return getDelegatedToken()
+}
+
 export async function getWorksheets(
   token: string,
   workbookId: string
@@ -283,6 +336,7 @@ export function parseSheet(
 
 function buildUrls(workbookId: string, path: string): string[] {
   const urls: string[] = []
+  const graphUserId = getGraphUserId()
 
   if (process.env.SITE_ID) {
     urls.push(`${GRAPH_BASE}/sites/${process.env.SITE_ID}/drive/items/${workbookId}/${path}`)
@@ -290,6 +344,16 @@ function buildUrls(workbookId: string, path: string): string[] {
 
   if (process.env.DRIVE_ID) {
     urls.push(`${GRAPH_BASE}/drives/${process.env.DRIVE_ID}/items/${workbookId}/${path}`)
+  }
+
+  if (graphUserId) {
+    urls.push(`${GRAPH_BASE}/users/${encodeURIComponent(graphUserId)}/drive/items/${workbookId}/${path}`)
+  }
+
+  if (isAppOnlyAuth() && urls.length === 0) {
+    throw new Error(
+      'GRAPH_AUTH_MODE=app exige SITE_ID, DRIVE_ID ou GRAPH_USER_ID para localizar o workbook sem /me.'
+    )
   }
 
   urls.push(`${GRAPH_BASE}/me/drive/items/${workbookId}/${path}`)

@@ -52,14 +52,34 @@ Acesse http://localhost:3000
 
 ## Variáveis de ambiente
 
-| Variável        | Descrição                                          |
-|-----------------|----------------------------------------------------|
-| `TENANT_ID`     | ID do diretório no Azure AD                        |
-| `CLIENT_ID`     | ID do aplicativo registrado no Azure AD            |
-| `CLIENT_SECRET` | Segredo do aplicativo (Client Secret)              |
-| `WORKBOOK_ID`   | ID da planilha no OneDrive                         |
-| `SITE_ID`       | (opcional) ID do site SharePoint                   |
-| `DRIVE_ID`      | (opcional) ID do drive SharePoint                  |
+| Variável          | Descrição                                                     |
+| ----------------- | ------------------------------------------------------------- |
+| `TENANT_ID`       | ID do diretório no Azure AD                                   |
+| `CLIENT_ID`       | ID do aplicativo registrado no Azure AD                       |
+| `CLIENT_SECRET`   | Segredo do aplicativo (Client Secret)                         |
+| `WORKBOOK_ID`     | ID da planilha no OneDrive                                    |
+| `SITE_ID`         | (opcional) ID do site SharePoint                              |
+| `DRIVE_ID`        | (opcional) ID do drive SharePoint                             |
+| `GRAPH_AUTH_MODE` | (opcional) `delegated` (padrão) ou `app`                      |
+| `GRAPH_USER_ID`   | (opcional) UPN/ID do usuário para acessar `/users/{id}/drive` |
+
+### Liberar dashboard sem login Microsoft
+
+Sim. Para remover o login interativo da Microsoft, use autenticação de aplicação:
+
+1. No Azure AD, adicione permissões de **Application** no Graph (`Files.Read.All` e/ou `Sites.Read.All`) e conceda **admin consent**.
+2. No `.env.local`, configure:
+
+```bash
+GRAPH_AUTH_MODE=app
+```
+
+3. Garanta pelo menos uma rota para o workbook:
+   - `SITE_ID`, ou
+   - `DRIVE_ID`, ou
+   - `GRAPH_USER_ID` (UPN/ID do dono da planilha).
+
+Nesse modo, o endpoint `/api/planilha` usa `client_credentials` e não depende de cookie/refresh token.
 
 ## Como obter as credenciais (Azure AD)
 

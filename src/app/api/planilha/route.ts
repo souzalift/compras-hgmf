@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import {
-  getDelegatedToken,
+  getGraphToken,
   getWorksheets,
   isMonthSheet,
   readSheet,
@@ -11,6 +11,8 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export async function GET() {
+  const authMode = process.env.GRAPH_AUTH_MODE === 'app' ? 'app' : 'delegated'
+
   console.log('\n[API /planilha] ── Iniciando ──')
   console.log(
     '[API] TENANT_ID       :',
@@ -42,8 +44,8 @@ export async function GET() {
       )
     }
 
-    console.log('[API] Obtendo token delegado...')
-    const token = await getDelegatedToken()
+    console.log(`[API] Obtendo token (${authMode})...`)
+    const token = await getGraphToken()
     console.log('[API] Token obtido ✓')
 
     console.log('[API] Listando abas...')
@@ -83,7 +85,8 @@ export async function GET() {
     return NextResponse.json(
       {
         error: message,
-        needsMicrosoftLogin: message.includes('Microsoft não autenticado'),
+        needsMicrosoftLogin:
+          authMode !== 'app' && message.includes('Microsoft não autenticado'),
         loginUrl: '/api/auth/microsoft/login',
       },
       { status: 500 }
