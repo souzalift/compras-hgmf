@@ -15,6 +15,21 @@ const REFRESH_MS = 5 * 60 * 1000;
 
 type Status = 'idle' | 'loading' | 'ok' | 'error';
 
+const MONTH_ORDER = [
+  'JAN',
+  'FEV',
+  'MAR',
+  'ABR',
+  'MAI',
+  'JUN',
+  'JUL',
+  'AGO',
+  'SET',
+  'OUT',
+  'NOV',
+  'DEZ',
+];
+
 function normalizeText(value: string) {
   return value
     .normalize('NFD')
@@ -109,7 +124,15 @@ export default function Dashboard() {
   }, [filtered]);
 
   const chartMes = useMemo(() => {
-    const all = Array.from(new Set(rows.map((r) => r.mes))).sort();
+    const all = Array.from(new Set(rows.map((r) => r.mes))).sort((a, b) => {
+      const monthA = MONTH_ORDER.indexOf(a.trim().toUpperCase());
+      const monthB = MONTH_ORDER.indexOf(b.trim().toUpperCase());
+
+      if (monthA === -1 && monthB === -1) return a.localeCompare(b, 'pt-BR');
+      if (monthA === -1) return 1;
+      if (monthB === -1) return -1;
+      return monthA - monthB;
+    });
 
     return {
       labels: all,
